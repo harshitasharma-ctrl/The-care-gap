@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gender Parity Ratio – Digital Skills</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Arial', sans-serif;
+    background: #ffffff;
+    padding: 28px 32px 32px;
+    color: #1a1a1a;
+  }
+  .wrapper { max-width: 780px; margin: 0 auto; }
+  h1 { font-size: 15px; font-weight: 700; margin-bottom: 14px; line-height: 1.4; color: #111; }
+  .chart-area { position: relative; }
+  svg { display: block; overflow: visible; }
+  .tooltip {
+    position: fixed;
+    background: #fff;
+    color: #111;
+    padding: 10px 14px;
+    border-radius: 4px;
+    font-size: 12.5px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.12s;
+    z-index: 999;
+    white-space: nowrap;
+    border: 1px solid #ccc;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    line-height: 1.6;
+  }
+  .tooltip.show { opacity: 1; }
+  .source { margin-top: 12px; font-size: 11.5px; color: #333; }
+  .source strong { font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="chart-area"><svg id="chart"></svg></div>
+</div>
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const data = [
+  { country: "Tonga",                              isMedian: false, ratio: 2.084360 },
+  { country: "Cuba",                               isMedian: false, ratio: 1.223513 },
+  { country: "Tuvalu",                             isMedian: false, ratio: 1.169441 },
+  { country: "Fiji",                               isMedian: false, ratio: 1.162007 },
+  { country: "Turks and Caicos Islands",           isMedian: false, ratio: 1.125009 },
+  { country: "Samoa",                              isMedian: false, ratio: 1.085935 },
+  { country: "Suriname",                           isMedian: false, ratio: 1.077139 },
+  { country: "Lesotho",                            isMedian: false, ratio: 1.056969 },
+  { country: "Tunisia",                            isMedian: false, ratio: 1.015965 },
+  { country: "Viet Nam",                           isMedian: false, ratio: 0.989609 },
+  { country: "Mongolia",                           isMedian: false, ratio: 0.955301 },
+  { country: "Kiribati",                           isMedian: false, ratio: 0.934654 },
+  { country: "Guyana",                             isMedian: false, ratio: 0.824432 },
+  { country: "Lao People's Democratic Republic",  isMedian: false, ratio: 0.770403 },
+  { country: "Nigeria",                            isMedian: false, ratio: 0.688410 },
+  { country: "Zimbabwe",                           isMedian: false, ratio: 0.654401 },
+  { country: "MEDIAN",                             isMedian: true,  ratio: 0.645918 },
+  { country: "Madagascar",                         isMedian: false, ratio: 0.637436 },
+  { country: "Sao Tome and Principe",              isMedian: false, ratio: 0.581181 },
+  { country: "Sierra Leone",                       isMedian: false, ratio: 0.489527 },
+  { country: "Nepal",                              isMedian: false, ratio: 0.486936 },
+  { country: "Togo",                               isMedian: false, ratio: 0.450171 },
+  { country: "Gambia",                             isMedian: false, ratio: 0.425574 },
+  { country: "Pakistan (Punjab)",                  isMedian: false, ratio: 0.418771 },
+  { country: "Chad",                               isMedian: false, ratio: 0.416048 },
+  { country: "Malawi",                             isMedian: false, ratio: 0.370213 },
+  { country: "Pakistan (Sindh)",                   isMedian: false, ratio: 0.340676 },
+  { country: "Guinea-Bissau",                      isMedian: false, ratio: 0.335879 },
+  { country: "Ghana",                              isMedian: false, ratio: 0.334491 },
+  { country: "Central African Republic",           isMedian: false, ratio: 0.334168 },
+  { country: "Congo, Democratic Republic of the", isMedian: false, ratio: 0.316734 },
+  { country: "Pakistan (Khyber Pakhtunkhwa)",      isMedian: false, ratio: 0.269010 },
+  { country: "Pakistan (Balochistan)",             isMedian: false, ratio: 0.104317 },
+];
+
+// ── Green palette
+const DARK_GREEN   = "#2D6A4F";  // header band left / dots favouring boys
+const LIGHT_GREEN  = "#95D5B2";  // header band right / dots favouring girls
+const MEDIAN_GREEN = "#1B4332";  // median dot + annotations
+const GREY_GRID    = "#d4d4d4";
+
+const labelW  = 230;
+const rightPad = 20;
+const rowH    = 22;
+const headerH = 52;
+const padTop  = headerH + 10;
+const padBot  = 40;
+const n       = data.length;
+const plotW   = 480;
+const svgW    = labelW + plotW + rightPad;
+const svgH    = padTop + n * rowH + padBot;
+const maxX    = 2.2;
+const minX    = 0.0;
+const scaleX  = v => labelW + ((v - minX) / (maxX - minX)) * plotW;
+const parityX = scaleX(1.0);
+
+const svg = document.getElementById('chart');
+svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
+svg.setAttribute('width', svgW);
+svg.setAttribute('height', svgH);
+
+function el(tag, attrs={}) {
+  const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  return e;
+}
+function txt(content, attrs={}) {
+  const e = el('text', attrs);
+  e.textContent = content;
+  return e;
+}
+
+// White background
+svg.appendChild(el('rect', { x:0, y:0, width:svgW, height:svgH, fill:'#fff' }));
+
+// ── Arrow marker def
+const defs = el('defs');
+const marker = el('marker', { id:'arrowhead', markerWidth:'8', markerHeight:'8', refX:'6', refY:'3', orient:'auto' });
+marker.appendChild(el('path', { d:'M0,0 L0,6 L8,3 z', fill: MEDIAN_GREEN }));
+defs.appendChild(marker);
+svg.appendChild(defs);
+
+// ── Header bands
+svg.appendChild(el('rect', { x: labelW, y: 0, width: parityX - labelW, height: headerH - 6, fill: DARK_GREEN }));
+svg.appendChild(el('rect', { x: parityX, y: 0, width: labelW + plotW - parityX, height: headerH - 6, fill: LIGHT_GREEN }));
+
+// Header labels
+const midLeft  = (labelW + parityX) / 2;
+const midRight = (parityX + labelW + plotW) / 2;
+svg.appendChild(txt('Favours adolescent boys', { x: midLeft,  y: 18, 'text-anchor':'middle', 'font-size':'12', 'font-weight':'bold', fill:'#fff', 'font-family':'Arial,sans-serif' }));
+svg.appendChild(txt('and young men',           { x: midLeft,  y: 33, 'text-anchor':'middle', 'font-size':'12', 'font-weight':'bold', fill:'#fff', 'font-family':'Arial,sans-serif' }));
+svg.appendChild(txt('Favours adolescent girls', { x: midRight, y: 18, 'text-anchor':'middle', 'font-size':'12', 'font-weight':'bold', fill:'#fff', 'font-family':'Arial,sans-serif' }));
+svg.appendChild(txt('and young women',          { x: midRight, y: 33, 'text-anchor':'middle', 'font-size':'12', 'font-weight':'bold', fill:'#fff', 'font-family':'Arial,sans-serif' }));
+
+// ── Grid lines + X axis labels
+[0.00, 0.20, 0.40, 0.60, 0.80, 1.00, 1.20, 1.40, 1.60, 1.80, 2.00, 2.20].forEach(v => {
+  const x = scaleX(v);
+  svg.appendChild(el('line', { x1:x, y1:padTop-6, x2:x, y2:padTop+n*rowH, stroke:GREY_GRID, 'stroke-width':'1' }));
+  svg.appendChild(txt(v.toFixed(2), { x, y:padTop+n*rowH+16, 'text-anchor':'middle', 'font-size':'11', fill:'#555', 'font-family':'Arial,sans-serif' }));
+});
+
+// ── Parity dashed line
+svg.appendChild(el('line', { x1:parityX, y1:padTop-6, x2:parityX, y2:padTop+n*rowH+4, stroke:'#666', 'stroke-width':'1.5', 'stroke-dasharray':'6,4' }));
+
+// ── Rows + dots
+const tooltip = document.getElementById('tooltip');
+
+data.forEach((d, i) => {
+  const cy = padTop + i * rowH + rowH / 2;
+  const cx = scaleX(d.ratio);
+  const r  = d.isMedian ? 9 : 6.5;
+
+  // stripe
+  if (i % 2 === 0) svg.appendChild(el('rect', { x:labelW, y:padTop+i*rowH, width:plotW, height:rowH, fill:'#f5f5f5' }));
+
+  // label
+  svg.appendChild(txt(d.country, {
+    x: labelW - 8, y: cy + 4,
+    'text-anchor':'end',
+    'font-size': d.isMedian ? '12' : '11.5',
+    'font-weight': d.isMedian ? 'bold' : 'normal',
+    fill: d.isMedian ? '#111' : '#333',
+    'font-family':'Arial,sans-serif'
+  }));
+
+  // dot
+  const color = d.isMedian ? MEDIAN_GREEN : (d.ratio >= 1.0 ? LIGHT_GREEN : DARK_GREEN);
+  const circle = el('circle', { cx, cy, r, fill:color, style:'cursor:pointer' });
+
+  circle.addEventListener('mouseenter', e => {
+    const per100 = Math.round(d.ratio * 100);
+    const color  = d.ratio >= 1.0 ? LIGHT_GREEN : DARK_GREEN;
+    if (d.isMedian) {
+      tooltip.innerHTML = `<b>Median Digital Skills Parity Ratio: ${d.ratio.toFixed(2)}</b><br>On average, <b style="color:${LIGHT_GREEN}">${per100}</b> female youth have digital skills<br><u>for every 100 male youth.</u>`;
+    } else {
+      tooltip.innerHTML = `Digital Skills Parity Ratio: <b style="color:${color}">${d.ratio.toFixed(2)}</b><br>In <b style="color:${color}">${d.country}</b>, <b style="color:${color}">${per100}</b> female youth have digital skills<br><u>for every 100 male youth.</u>`;
+    }
+    tooltip.classList.add('show');
+  });
+  circle.addEventListener('mousemove', e => {
+    tooltip.style.left = (e.clientX + 12) + 'px';
+    tooltip.style.top  = (e.clientY - 28) + 'px';
+  });
+  circle.addEventListener('mouseleave', () => tooltip.classList.remove('show'));
+  svg.appendChild(circle);
+});
+
+
+</script>
+</body>
+</html>
