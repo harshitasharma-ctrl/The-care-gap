@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UHC Benchmark Chart — The Care Gap</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/3.0.1/chartjs-plugin-annotation.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #ffffff;
+    color: #2C2C2A;
+    padding: 24px 24px 20px;
+    width: 780px;
+  }
+  .legend-row {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #2C2C2A;
+  }
+  .legend-sq {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<div style="position:relative; width:100%; height:420px;">
+  <canvas id="uhcChart" role="img" aria-label="Stacked bar chart of public health spending per capita for LICs and LMICs in 2018 and 2024 compared to UHC benchmarks">
+    LICs 2018: $7.70 govt + $9.10 DAH = $16.80. LICs 2024: $8.30 + $8.90 = $17.20. LMICs 2018: $37.30 + $5.70 = $42.90. LMICs 2024: $39.80 + $6.80 = $46.60.
+  </canvas>
+</div>
+
+<div class="legend-row">
+  <span class="legend-item">
+    <span class="legend-sq" style="background:#085041;"></span>Government health expenditure
+  </span>
+  <span class="legend-item">
+    <span class="legend-sq" style="background:#9FE1CB;"></span>Off-budget development assistance for health
+  </span>
+</div>
+
+<script>
+const govtData = [7.70, 8.30, 37.30, 39.80];
+const dahData  = [9.10, 8.90,  5.70,  6.80];
+const totals   = [16.80, 17.20, 42.90, 46.60];
+const labels   = ['LICs\n2018','LICs\n2024','LMICs\n2018','LMICs\n2024'];
+
+const totalLabelPlugin = {
+  id: 'totalLabels',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    ctx.save();
+    totals.forEach((t, i) => {
+      const meta = chart.getDatasetMeta(1);
+      const bar = meta.data[i];
+      ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+      ctx.fillStyle = '#2C2C2A';
+      ctx.textAlign = 'center';
+      ctx.fillText('$' + t.toFixed(2), bar.x, bar.y - 8);
+    });
+    [0, 1].forEach(dsIdx => {
+      const meta = chart.getDatasetMeta(dsIdx);
+      const dataArr = dsIdx === 0 ? govtData : dahData;
+      meta.data.forEach((bar, i) => {
+        ctx.font = '11px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+        ctx.fillStyle = dsIdx === 0 ? '#ffffff' : '#2C2C2A';
+        ctx.textAlign = 'center';
+        ctx.fillText('$' + dataArr[i].toFixed(2), bar.x, bar.y + bar.height / 2 + 4);
+      });
+    });
+    ctx.restore();
+  }
+};
+
+new Chart(document.getElementById('uhcChart'), {
+  type: 'bar',
+  plugins: [totalLabelPlugin],
+  data: {
+    labels: labels,
+    datasets: [
+      { label: 'Government health expenditure',     data: govtData, backgroundColor: '#085041', stack: 'a' },
+      { label: 'Off-budget development assistance', data: dahData,  backgroundColor: '#9FE1CB', stack: 'a' }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    layout: { padding: { top: 30, right: 20 } },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          title: ctx => ctx[0].label.replace('\n', ' '),
+          label: ctx => ctx.dataset.label + ': $' + ctx.parsed.y.toFixed(2)
+        }
+      },
+      annotation: {
+        annotations: {
+          bench60: {
+            type: 'line', yMin: 60, yMax: 60,
+            xMin: -0.5, xMax: 1.5,
+            borderColor: '#1D9E75', borderWidth: 1.5, borderDash: [6, 4],
+            label: {
+              display: true,
+              content: 'Minimum Public Spending UHC Benchmark: $60.00',
+              position: 'start',
+              yAdjust: -12,
+              color: '#0F6E56',
+              font: { size: 11, style: 'italic' },
+              backgroundColor: 'transparent'
+            }
+          },
+          bench92: {
+            type: 'line', yMin: 92, yMax: 92,
+            xMin: 1.5, xMax: 3.5,
+            borderColor: '#1D9E75', borderWidth: 1.5, borderDash: [6, 4],
+            label: {
+              display: true,
+              content: 'Minimum Public Spending UHC Benchmark: $92.00',
+              position: 'start',
+              yAdjust: -12,
+              color: '#0F6E56',
+              font: { size: 11, style: 'italic' },
+              backgroundColor: 'transparent'
+            }
+          },
+          divider: {
+            type: 'line', xMin: 1.5, xMax: 1.5,
+            borderColor: 'rgba(136,135,128,0.3)', borderWidth: 1, borderDash: [4, 4]
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        stacked: true,
+        grid: { display: false },
+        ticks: { font: { size: 11 }, color: '#2C2C2A' },
+        border: { display: false }
+      },
+      y: {
+        stacked: true,
+        min: 0,
+        max: 110,
+        title: { display: true, text: 'US$ 2024 per capita', font: { size: 11 }, color: '#2C2C2A' },
+        ticks: {
+          font: { size: 11 },
+          color: '#2C2C2A',
+          callback: v => '$' + v.toFixed(2)
+        },
+        grid: { color: 'rgba(136,135,128,0.15)' },
+        border: { display: false }
+      }
+    }
+  }
+});
+</script>
+</body>
+</html>
