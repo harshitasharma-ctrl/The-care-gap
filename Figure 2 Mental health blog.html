@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Figure 2</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: #fff;
+  color: #111;
+  padding: 24px 28px 20px;
+  max-width: 920px;
+  margin: 0 auto;
+}
+.tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+.tab {
+  padding: 6px 14px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  background: none;
+  color: #888;
+  border: none;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tab.active { color: #085041; border-bottom: 2px solid #085041; }
+.tab:hover:not(.active) { color: #333; }
+
+.panels { display: flex; flex-direction: column; gap: 32px; }
+.panel-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 8px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.chart-wrap { position: relative; height: 260px; }
+
+.legend { display: flex; gap: 20px; margin-top: 16px; flex-wrap: wrap; align-items: center; }
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #333; }
+.legend-line { width: 26px; height: 2.5px; border-radius: 2px; flex-shrink: 0; }
+.shaded-box { width: 26px; height: 10px; background: rgba(159,225,203,0.4); border: 1.5px solid #9FE1CB; border-radius: 2px; flex-shrink: 0; }
+.covid-note { margin-left: auto; font-size: 11px; color: #9993CC; font-style: italic; }
+</style>
+</head>
+<body>
+
+<div class="tabs">
+  <div class="tab active" onclick="setView('both',this)">Both panels</div>
+  <div class="tab" onclick="setView('a',this)">Panel A — Gender gap</div>
+  <div class="tab" onclick="setView('b',this)">Panel B — Age groups</div>
+</div>
+
+<div class="panels" id="panels">
+  <!-- Panel A -->
+  <div id="panel-a">
+    <div class="panel-label">Panel A — Gender gap (all ages)</div>
+    <div class="chart-wrap"><canvas id="chartA"></canvas></div>
+  </div>
+  <!-- Panel B -->
+  <div id="panel-b">
+    <div class="panel-label">Panel B — Female burden by age group</div>
+    <div class="chart-wrap"><canvas id="chartB"></canvas></div>
+  </div>
+</div>
+
+<div class="legend" id="legend">
+  <!-- Panel A legend -->
+  <div class="legend-item" id="leg-female"><div class="legend-line" style="background:#1D9E75"></div>Female</div>
+  <div class="legend-item" id="leg-male"><div class="legend-line" style="background:#7F77DD; background: repeating-linear-gradient(90deg,#7F77DD 0,#7F77DD 5px,transparent 5px,transparent 9px)"></div>Male</div>
+  <div class="legend-item" id="leg-shade"><div class="shaded-box"></div>Gender gap</div>
+  <!-- Panel B legend -->
+  <div class="legend-item" id="leg-15"><div class="legend-line" style="background:#085041"></div>Ages 15–49</div>
+  <div class="legend-item" id="leg-50"><div class="legend-line" style="background:#1D9E75; background: repeating-linear-gradient(90deg,#1D9E75 0,#1D9E75 5px,transparent 5px,transparent 9px)"></div>Ages 50–69</div>
+  <div class="legend-item" id="leg-70"><div class="legend-line" style="background:#9FE1CB"></div>Ages 70+</div>
+  <div class="covid-note">▌ COVID-19 period (from 2020)</div>
+</div>
+
+<script>
+const YEARS = Array.from({length:34},(_,i)=>String(1990+i));
+
+const PA = {
+  Female:[504.6,510.6,515.5,504.7,520.0,518.0,520.1,530.2,532.4,537.5,546.9,547.7,556.7,560.7,565.3,573.0,578.5,581.7,589.6,593.5,598.2,605.5,608.8,612.2,619.3,622.6,626.7,632.8,635.9,640.2,789.3,793.2,785.8,800.2],
+  Male:  [389.5,393.2,395.9,385.9,396.3,392.9,393.2,399.0,399.1,401.1,406.9,405.7,411.2,412.5,414.3,418.6,421.1,422.0,426.4,427.5,430.0,434.0,434.8,436.2,440.3,441.4,443.4,446.7,448.1,450.5,553.6,556.7,552.2,560.2]
+};
+const PB = {
+  '15-49':[777.7,783.5,786.9,767.6,786.8,779.6,778.4,789.1,787.8,791.2,800.4,798.0,807.4,810.2,814.5,822.8,827.8,829.7,838.2,840.8,845.1,852.8,854.9,857.5,864.6,866.0,869.3,875.3,877.5,881.3,1075.9,1077.2,1072.0,1094.3],
+  '50-69':[773.5,781.4,786.6,770.8,793.2,789.6,792.0,806.1,808.9,816.9,830.0,828.1,838.3,840.1,840.9,847.4,850.9,852.3,860.5,863.9,866.6,873.4,874.4,875.8,882.7,883.9,883.5,885.7,882.0,878.6,1051.2,1047.9,1038.4,1058.3],
+  '70+'  :[695.1,700.5,704.2,690.8,709.4,705.6,707.1,719.1,720.5,727.2,737.3,737.8,747.5,752.5,755.1,764.5,768.6,771.0,777.0,779.5,781.0,785.7,786.5,786.8,790.9,790.0,789.7,791.6,790.2,790.2,951.8,948.4,939.7,958.8]
+};
+
+const covidPlugin = {
+  id:'covid',
+  beforeDraw(chart) {
+    const {ctx,chartArea,scales} = chart;
+    if (!chartArea) return;
+    const x0 = scales.x.getPixelForValue('2020');
+    ctx.save();
+    ctx.fillStyle='rgba(127,119,221,0.07)';
+    ctx.fillRect(x0,chartArea.top,chartArea.right-x0,chartArea.height);
+    ctx.strokeStyle='rgba(127,119,221,0.4)'; ctx.lineWidth=1.2; ctx.setLineDash([5,4]);
+    ctx.beginPath(); ctx.moveTo(x0,chartArea.top); ctx.lineTo(x0,chartArea.bottom); ctx.stroke();
+    ctx.setLineDash([]); ctx.restore();
+  }
+};
+
+// Shaded gap plugin for Panel A
+const gapPlugin = {
+  id:'gap',
+  beforeDatasetsDraw(chart) {
+    const {ctx,chartArea,scales} = chart;
+    if (!chartArea) return;
+    ctx.save();
+    ctx.beginPath();
+    // draw polygon: female top, then male bottom reversed
+    const fData = chart.data.datasets[0].data;
+    const mData = chart.data.datasets[1].data;
+    for (let i=0;i<fData.length;i++) {
+      const x = scales.x.getPixelForValue(YEARS[i]);
+      const y = scales.y.getPixelForValue(fData[i]);
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    }
+    for (let i=fData.length-1;i>=0;i--) {
+      const x = scales.x.getPixelForValue(YEARS[i]);
+      const y = scales.y.getPixelForValue(mData[i]);
+      ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+    ctx.fillStyle='rgba(159,225,203,0.3)';
+    ctx.fill();
+    ctx.restore();
+  }
+};
+
+function axisOpts(yLabel) {
+  return {
+    x:{ ticks:{ maxTicksLimit:8, color:'#555', font:{family:'IBM Plex Sans',size:10} }, grid:{display:false}, border:{color:'#bbb'} },
+    y:{ ticks:{ color:'#555', font:{family:'IBM Plex Sans',size:10}, callback:v=>v.toLocaleString() }, grid:{color:'#efefef'}, border:{color:'#bbb'},
+        title:{ display:true, text:yLabel, color:'#555', font:{family:'IBM Plex Sans',size:10} } }
+  };
+}
+
+function tooltipOpts() {
+  return {
+    backgroundColor:'#fff', borderColor:'#e0e0e0', borderWidth:1,
+    titleColor:'#333', bodyColor:'#333', padding:10,
+    titleFont:{family:'IBM Plex Sans',size:11,weight:'500'},
+    bodyFont:{family:'IBM Plex Sans',size:11},
+    callbacks:{
+      title: i=>`Year: ${i[0].label}`,
+      label: i=>` ${i.dataset.label}: ${i.raw.toLocaleString(undefined,{maximumFractionDigits:1})} per 100,000`
+    }
+  };
+}
+
+// Chart A
+const chartA = new Chart(document.getElementById('chartA').getContext('2d'), {
+  type:'line',
+  data:{
+    labels:YEARS,
+    datasets:[
+      { label:'Female', data:PA.Female, borderColor:'#1D9E75', borderWidth:2, tension:0.35, pointRadius:0, pointHoverRadius:5 },
+      { label:'Male',   data:PA.Male,   borderColor:'#7F77DD', borderWidth:1.8, borderDash:[6,3], tension:0.35, pointRadius:0, pointHoverRadius:5 },
+    ]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    interaction:{mode:'index',intersect:false},
+    plugins:{ legend:{display:false}, tooltip:tooltipOpts() },
+    scales: axisOpts('ASDR per 100,000')
+  },
+  plugins:[covidPlugin, gapPlugin]
+});
+
+// Chart B
+const chartB = new Chart(document.getElementById('chartB').getContext('2d'), {
+  type:'line',
+  data:{
+    labels:YEARS,
+    datasets:[
+      { label:'Ages 15–49', data:PB['15-49'], borderColor:'#085041', borderWidth:2, tension:0.35, pointRadius:0, pointHoverRadius:5 },
+      { label:'Ages 50–69', data:PB['50-69'], borderColor:'#1D9E75', borderWidth:1.8, borderDash:[6,3], tension:0.35, pointRadius:0, pointHoverRadius:5 },
+      { label:'Ages 70+',   data:PB['70+'],   borderColor:'#9FE1CB', borderWidth:1.8, tension:0.35, pointRadius:0, pointHoverRadius:5 },
+    ]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    interaction:{mode:'index',intersect:false},
+    plugins:{ legend:{display:false}, tooltip:tooltipOpts() },
+    scales: axisOpts('ASDR per 100,000')
+  },
+  plugins:[covidPlugin]
+});
+
+function setView(view, el) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+
+  const pa = document.getElementById('panel-a');
+  const pb = document.getElementById('panel-b');
+  const panels = document.getElementById('panels');
+
+  if (view==='both') {
+    panels.style.display='flex'; panels.style.flexDirection='column';
+    pa.style.display='block'; pb.style.display='block';
+    // show all legend items
+    ['leg-female','leg-male','leg-shade','leg-15','leg-50','leg-70'].forEach(id=>document.getElementById(id).style.display='flex');
+  } else if (view==='a') {
+    panels.style.display='flex'; panels.style.flexDirection='column';
+    pa.style.display='block'; pb.style.display='none';
+    ['leg-female','leg-male','leg-shade'].forEach(id=>document.getElementById(id).style.display='flex');
+    ['leg-15','leg-50','leg-70'].forEach(id=>document.getElementById(id).style.display='none');
+  } else {
+    panels.style.display='flex'; panels.style.flexDirection='column';
+    pa.style.display='none'; pb.style.display='block';
+    ['leg-female','leg-male','leg-shade'].forEach(id=>document.getElementById(id).style.display='none');
+    ['leg-15','leg-50','leg-70'].forEach(id=>document.getElementById(id).style.display='flex');
+  }
+  setTimeout(()=>{ chartA.resize(); chartB.resize(); },10);
+}
+</script>
+</body>
+</html>
