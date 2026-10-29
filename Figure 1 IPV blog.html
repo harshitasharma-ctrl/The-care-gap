@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Figure 1</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: #fff;
+  color: #111;
+  padding: 24px 28px 20px;
+  max-width: 860px;
+  margin: 0 auto;
+}
+.chart-wrap { position: relative; height: 270px; }
+.chart-wrap + .chart-wrap { margin-top: 10px; }
+.x-title { text-align: center; font-size: 12px; color: #555; margin-top: 2px; }
+@media (max-width: 560px) {
+  body { padding: 16px 12px 14px; }
+  .chart-wrap { height: 240px; }
+}
+</style>
+</head>
+<body>
+<div class="chart-wrap"><canvas id="lifetime"></canvas></div>
+<div class="chart-wrap"><canvas id="past12"></canvas></div>
+<div class="x-title">Year</div>
+
+<script>
+const FONT = "'IBM Plex Sans', sans-serif";
+const years = ['2000', '2010', '2018', '2023'];
+
+const panels = [
+  {
+    id: 'lifetime',
+    title: 'Lifetime prevalence',
+    color: '#085041',
+    band: 'rgba(8,80,65,0.18)',
+    est:   [30.8, 30.8, 27.2, 25.8],
+    lower: [27.9, 28.9, 25.5, 23.7],
+    upper: [34.4, 33.4, 29.8, 28.8],
+    showX: false
+  },
+  {
+    id: 'past12',
+    title: 'Past-12-months prevalence',
+    color: '#1D9E75',
+    band: 'rgba(29,158,117,0.18)',
+    est:   [17.8, 17.5, 14.4, 13.7],
+    lower: [15.4, 15.4, 12.6, 11.8],
+    upper: [21.6, 20.4, 17.0, 16.6],
+    showX: true
+  }
+];
+
+// Panel title badge (top-left, like the static chart)
+const badgePlugin = {
+  id: 'badge',
+  afterDraw(chart, _args, opts) {
+    const { ctx, chartArea } = chart;
+    ctx.save();
+    ctx.font = `600 ${chart.width < 500 ? 12 : 14}px ${FONT}`;
+    const padX = 9, h = chart.width < 500 ? 24 : 28;
+    const w = ctx.measureText(opts.text).width + padX * 2;
+    const x = chartArea.left + 8, y = chartArea.top - h - 8;
+    ctx.fillStyle = opts.color;
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, 5);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(opts.text, x + padX, y + h / 2 + 1);
+    ctx.restore();
+  }
+};
+
+// Estimate + uncertainty interval labels above each point
+const pointLabels = {
+  id: 'pointlabels',
+  afterDatasetsDraw(chart, _args, opts) {
+    const { ctx } = chart;
+    const meta = chart.getDatasetMeta(2);
+    if (meta.hidden) return;
+    const small = chart.width < 500;
+    ctx.save();
+    ctx.fillStyle = opts.color;
+    ctx.textAlign = 'center';
+    meta.data.forEach((pt, i) => {
+      const yTop = chart.scales.y.getPixelForValue(opts.upper[i]);
+      ctx.font = `600 ${small ? 10 : 11}px ${FONT}`;
+      ctx.fillText(opts.est[i].toFixed(1) + '%', pt.x, yTop - (small ? 17 : 20));
+      if (!small) {
+        ctx.font = `500 11px ${FONT}`;
+        ctx.fillText(`(${opts.lower[i].toFixed(1)}–${opts.upper[i].toFixed(1)})`, pt.x, yTop - 7);
+      }
+    });
+    ctx.restore();
+  }
+};
+
+// Years sit on a true linear axis, because the gaps between 2000, 2010, 2018 and 2023 are uneven
+const xy = arr => arr.map((v, i) => ({ x: +years[i], y: v }));
+
+function build(p) {
+  return new Chart(document.getElementById(p.id), {
+    type: 'line',
+    data: {
+      datasets: [
+        { label: 'Upper', data: xy(p.upper), borderWidth: 0, pointRadius: 0, pointHoverRadius: 0, pointHitRadius: 0,
+          backgroundColor: p.band, fill: '+1', tension: 0 },
+        { label: 'Lower', data: xy(p.lower), borderWidth: 0, pointRadius: 0, pointHoverRadius: 0, pointHitRadius: 0,
+          backgroundColor: p.band, fill: false, tension: 0 },
+        { label: p.title, data: xy(p.est), borderColor: p.color, borderWidth: 3,
+          backgroundColor: '#fff', pointBorderColor: p.color, pointBorderWidth: 2.5,
+          pointRadius: 5.5, pointHoverRadius: 7.5, pointHoverBorderWidth: 3, fill: false, tension: 0 }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 700 },
+      layout: { padding: { top: 40, right: 16 } },
+      interaction: { mode: 'nearest', axis: 'x', intersect: false },
+      scales: {
+        x: {
+          type: 'linear',
+          min: 1999, max: 2024,
+          afterBuildTicks: axis => { axis.ticks = years.map(v => ({ value: +v })); },
+          ticks: { display: p.showX, callback: v => v, font: { family: FONT, size: 12 }, color: '#333' },
+          grid: { color: '#ddd', drawTicks: false },
+          border: { display: false, dash: [4, 3] }
+        },
+        y: {
+          min: 0, max: 40,
+          ticks: { stepSize: 10, callback: v => v + '%', font: { family: FONT, size: 11 }, color: '#333' },
+          grid: { color: '#eee' },
+          border: { display: false },
+          title: { display: true, text: 'Prevalence (%)', font: { family: FONT, size: 11 }, color: '#555' }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        badge: { text: p.title, color: p.color },
+        pointlabels: { color: p.color, est: p.est, lower: p.lower, upper: p.upper },
+        tooltip: {
+          filter: item => item.datasetIndex === 2,
+          backgroundColor: '#fff',
+          borderColor: p.color,
+          borderWidth: 1,
+          titleColor: '#111',
+          bodyColor: '#333',
+          titleFont: { family: FONT, weight: '600', size: 12 },
+          bodyFont: { family: FONT, size: 12 },
+          padding: 10,
+          displayColors: false,
+          callbacks: {
+            title: items => items.length ? String(items[0].parsed.x) : '',
+            label: item => [
+              `${p.title}: ${p.est[item.dataIndex].toFixed(1)}%`,
+              `95% UI: ${p.lower[item.dataIndex].toFixed(1)}–${p.upper[item.dataIndex].toFixed(1)}%`
+            ]
+          }
+        }
+      }
+    },
+    plugins: [badgePlugin, pointLabels]
+  });
+}
+
+document.fonts.ready.then(() => panels.forEach(build));
+</script>
+</body>
+</html>
