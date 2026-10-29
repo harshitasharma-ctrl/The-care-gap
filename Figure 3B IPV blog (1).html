@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Figure 3B</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: #fff;
+  color: #111;
+  padding: 24px 28px 20px;
+  max-width: 860px;
+  margin: 0 auto;
+}
+.chart-wrap { position: relative; height: 680px; }
+@media (max-width: 560px) {
+  body { padding: 16px 12px 14px; }
+  .chart-wrap { height: 720px; }
+}
+</style>
+</head>
+<body>
+<div class="chart-wrap"><canvas id="chart"></canvas></div>
+
+<script>
+const FONT = "'IBM Plex Sans', sans-serif";
+const labels = [
+  ['Western', 'Pacific Region'],
+  ['South-East', 'Asia Region'],
+  'Americas',
+  ['European', 'Region'],
+  ['E. Mediterranean', 'Region'],
+  ['African', 'Region']
+];
+// Order within each region (top to bottom) matches the static chart
+const series = [
+  { label: 'Interpersonal violence', color: '#085041', data: [39.9, 34.4, 24.8, 29.4, 44.1, 36.3] },
+  { label: 'Self-harm',              color: '#1D9E75', data: [26.8, 28.1, 26.4, 23.3, 24.2, 27.5] },
+  { label: 'Anxiety disorders',      color: '#4A90A4', data: [17.0, 19.2, 17.7, 13.6, 14.2, 13.0] },
+  { label: 'Depressive disorders',   color: '#7F77DD', data: [10.5, 14.1, 11.5,  9.7, 11.6, 12.9] }
+];
+
+// Thin separators between regions
+const separators = {
+  id: 'separators',
+  beforeDatasetsDraw(chart) {
+    const { ctx, chartArea, scales } = chart;
+    const n = chart.data.labels.length;
+    ctx.save();
+    ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1;
+    for (let i = 0; i < n - 1; i++) {
+      const y = (scales.y.getPixelForValue(i) + scales.y.getPixelForValue(i + 1)) / 2;
+      ctx.beginPath(); ctx.moveTo(chartArea.left, y); ctx.lineTo(chartArea.right, y); ctx.stroke();
+    }
+    ctx.restore();
+  }
+};
+
+const valueLabels = {
+  id: 'valuelabels',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    ctx.save();
+    ctx.fillStyle = '#333';
+    ctx.font = `500 ${chart.width < 500 ? 10 : 11}px ${FONT}`;
+    ctx.textBaseline = 'middle';
+    chart.data.datasets.forEach((ds, di) => {
+      const meta = chart.getDatasetMeta(di);
+      if (meta.hidden) return;
+      meta.data.forEach((bar, i) => ctx.fillText(ds.data[i].toFixed(1) + '%', bar.x + 6, bar.y));
+    });
+    ctx.restore();
+  }
+};
+
+document.fonts.ready.then(() => new Chart(document.getElementById('chart'), {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: series.map(s => ({
+      label: s.label,
+      data: s.data,
+      backgroundColor: s.color,
+      hoverBackgroundColor: s.color + 'D9',
+      categoryPercentage: 0.84,
+      barPercentage: 0.86
+    }))
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 700 },
+    layout: { padding: { right: 8 } },
+    interaction: { mode: 'index', axis: 'y', intersect: false },
+    scales: {
+      x: {
+        min: 0, max: 50,
+        ticks: { stepSize: 10, font: { family: FONT, size: 11 }, color: '#333' },
+        grid: { color: '#eee' },
+        border: { display: false },
+        title: { display: true, text: '% of female DALYs attributable to intimate partner violence',
+                 font: { family: FONT, size: 12 }, color: '#444' }
+      },
+      y: {
+        ticks: { font: { family: FONT, size: 12 }, color: '#333' },
+        grid: { display: false },
+        border: { display: false }
+      }
+    },
+    plugins: {
+      legend: {
+        position: 'top',
+        align: 'center',
+        reverse: true,
+        labels: { font: { family: FONT, size: 12 }, color: '#222', boxWidth: 12, boxHeight: 12, padding: 14 }
+      },
+      tooltip: {
+        backgroundColor: '#fff',
+        borderColor: '#ccc',
+        borderWidth: 1,
+        titleColor: '#111',
+        bodyColor: '#333',
+        titleFont: { family: FONT, weight: '600', size: 12 },
+        bodyFont: { family: FONT, size: 12 },
+        padding: 10,
+        boxPadding: 4,
+        callbacks: {
+          title: items => [].concat(labels[items[0].dataIndex]).join(' '),
+          label: item => `${item.dataset.label}: ${item.parsed.x.toFixed(1)}%`
+        }
+      }
+    }
+  },
+  plugins: [separators, valueLabels]
+}));
+</script>
+</body>
+</html>
