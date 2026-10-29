@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Figure 2</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: #fff;
+  color: #111;
+  padding: 24px 28px 20px;
+  max-width: 860px;
+  margin: 0 auto;
+}
+.chart-wrap { position: relative; height: 560px; }
+@media (max-width: 560px) {
+  body { padding: 16px 12px 14px; }
+  .chart-wrap { height: 600px; }
+}
+</style>
+</head>
+<body>
+<div class="chart-wrap"><canvas id="chart"></canvas></div>
+
+<script>
+const FONT = "'IBM Plex Sans', sans-serif";
+const LIFE = '#085041', P12 = '#9FE1CB', P12_TEXT = '#4BA888';
+const GLOBAL = { life: 25.8, p12: 13.7 };
+
+const labels = [
+  ['African', 'Region (AFR)'],
+  ['South-East Asia', 'Region (SEAR)'],
+  ['Eastern Mediterranean', 'Region (EMR)'],
+  ['Region of the', 'Americas (AMR)'],
+  ['European', 'Region (EUR)'],
+  ['Western Pacific', 'Region (WPR)']
+];
+const shortLabels = ['AFR', 'SEAR', 'EMR', 'AMR', 'EUR', 'WPR'];
+const lifetime = [32.0, 31.5, 27.2, 25.0, 21.7, 18.4];
+const past12   = [18.9, 20.5, 16.9, 7.3, 6.5, 9.0];
+
+// Dashed global-average lines with labels above the plot
+const globalLines = {
+  id: 'globallines',
+  afterDatasetsDraw(chart) {
+    const { ctx, chartArea, scales } = chart;
+    const small = chart.width < 500;
+    const lines = [
+      { v: GLOBAL.p12, stroke: 'rgba(75,168,136,0.6)', text: P12_TEXT, idx: 1 },
+      { v: GLOBAL.life, stroke: 'rgba(8,80,65,0.65)', text: LIFE, idx: 0 }
+    ];
+    lines.forEach(l => {
+      if (!chart.isDatasetVisible(l.idx)) return;
+      const x = scales.x.getPixelForValue(l.v);
+      ctx.save();
+      ctx.strokeStyle = l.stroke; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+      ctx.beginPath(); ctx.moveTo(x, chartArea.top); ctx.lineTo(x, chartArea.bottom); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = l.text; ctx.textAlign = 'center';
+      ctx.font = `600 ${small ? 10 : 11}px ${FONT}`;
+      ctx.fillText('Global', x, chartArea.top - 22);
+      ctx.fillText(l.v.toFixed(1) + '%', x, chartArea.top - 9);
+      ctx.restore();
+    });
+  }
+};
+
+// Value labels at bar ends
+const valueLabels = {
+  id: 'valuelabels',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    const small = chart.width < 500;
+    chart.data.datasets.forEach((ds, di) => {
+      const meta = chart.getDatasetMeta(di);
+      if (meta.hidden) return;
+      ctx.save();
+      ctx.fillStyle = di === 0 ? LIFE : P12_TEXT;
+      ctx.font = `600 ${small ? 10 : 12}px ${FONT}`;
+      ctx.textBaseline = 'middle';
+      meta.data.forEach((bar, i) => ctx.fillText(ds.data[i].toFixed(1) + '%', bar.x + 6, bar.y));
+      ctx.restore();
+    });
+  }
+};
+
+let chart;
+function render() {
+  const small = window.innerWidth < 560;
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById('chart'), {
+    type: 'bar',
+    data: {
+      labels: small ? shortLabels : labels,
+      datasets: [
+        { label: 'Lifetime prevalence', data: lifetime, backgroundColor: LIFE, hoverBackgroundColor: '#0B6B57',
+          categoryPercentage: 0.66, barPercentage: 1.0 },
+        { label: 'Past-12-months prevalence', data: past12, backgroundColor: P12, hoverBackgroundColor: '#86D6BB',
+          categoryPercentage: 0.66, barPercentage: 1.0 }
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 700 },
+      layout: { padding: { top: 34, right: 8 } },
+      interaction: { mode: 'index', axis: 'y', intersect: false },
+      scales: {
+        x: {
+          min: 0, max: 40,
+          ticks: { stepSize: 5, font: { family: FONT, size: 11 }, color: '#333' },
+          grid: { color: '#eee' },
+          border: { display: false },
+          title: { display: true, text: '% of ever-partnered women aged 15 years and older',
+                   font: { family: FONT, size: 12 }, color: '#444' }
+        },
+        y: {
+          ticks: { font: { family: FONT, size: small ? 11 : 12 }, color: '#333' },
+          grid: { display: false },
+          border: { display: false }
+        }
+      },
+      plugins: {
+        legend: {
+          position: 'bottom',
+          align: 'end',
+          labels: { font: { family: FONT, size: 12 }, color: '#222', boxWidth: 22, boxHeight: 12, padding: 14 }
+        },
+        tooltip: {
+          backgroundColor: '#fff',
+          borderColor: '#ccc',
+          borderWidth: 1,
+          titleColor: '#111',
+          bodyColor: '#333',
+          titleFont: { family: FONT, weight: '600', size: 12 },
+          bodyFont: { family: FONT, size: 12 },
+          padding: 10,
+          boxPadding: 4,
+          callbacks: {
+            title: items => labels[items[0].dataIndex].join(' '),
+            label: item => {
+              const g = item.datasetIndex === 0 ? GLOBAL.life : GLOBAL.p12;
+              const d = item.parsed.x - g;
+              return `${item.dataset.label}: ${item.parsed.x.toFixed(1)}%  (${d >= 0 ? '+' : ''}${d.toFixed(1)} pts vs global)`;
+            }
+          }
+        }
+      }
+    },
+    plugins: [globalLines, valueLabels]
+  });
+}
+
+document.fonts.ready.then(render);
+let lastSmall = window.innerWidth < 560;
+window.addEventListener('resize', () => {
+  const s = window.innerWidth < 560;
+  if (s !== lastSmall) { lastSmall = s; render(); }
+});
+</script>
+</body>
+</html>
