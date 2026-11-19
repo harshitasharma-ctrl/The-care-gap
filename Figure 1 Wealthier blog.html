@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Life expectancy at birth by World Bank income group, 2000-2024</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: #fff; font-family: 'IBM Plex Sans', Arial, sans-serif; color: #333; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 12px 12px 8px; }
+  .chart-box { position: relative; height: 480px; }
+  @media (max-width: 600px) { .chart-box { height: 400px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="chart-box"><canvas id="chart" aria-label="Line chart of life expectancy at birth by World Bank income group from 2000 to 2024" role="img"></canvas></div>
+</div>
+<script>
+const FONT = "'IBM Plex Sans', Arial, sans-serif";
+const years = Array.from({length: 25}, (_, i) => 2000 + i);
+
+// World Bank, World Development Indicators (SP.DYN.LE00.IN), last updated 11 Nov 2026
+const series = [
+  { label: 'High income', color: '#085041', data: [76.04,76.31,76.44,76.55,76.99,77.11,77.54,77.86,78.05,78.40,78.60,78.92,79.08,79.31,79.57,79.52,79.72,79.85,79.97,80.20,79.20,78.80,79.43,80.15,80.39] },
+  { label: 'Low income', color: '#1D9E75', data: [53.57,54.10,54.59,55.65,56.15,56.71,57.52,58.20,58.81,59.14,59.92,60.02,60.65,61.13,61.24,61.48,61.92,62.17,62.88,63.34,63.40,62.92,64.08,65.04,65.24] }
+];
+const hi = series[0].data, li = series[1].data;
+
+// Labels the gap between high- and low-income countries at 2000 and 2024
+const gapMarkers = {
+  id: 'gapMarkers',
+  afterDatasetsDraw(chart) {
+    const { ctx, scales: { x, y } } = chart;
+    if (!chart.isDatasetVisible(0) || !chart.isDatasetVisible(1)) return;
+    const small = chart.width < 520;
+    ctx.save();
+    [0, 24].forEach(i => {
+      const px = x.getPixelForValue(i);
+      const top = y.getPixelForValue(hi[i]), bot = y.getPixelForValue(li[i]);
+      const off = i === 0 ? 10 : -10;
+      ctx.strokeStyle = '#999';
+      ctx.setLineDash([3, 3]);
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(px + off, top); ctx.lineTo(px + off, bot); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#333';
+      ctx.font = `600 ${small ? 11 : 12}px ${FONT}`;
+      ctx.textAlign = i === 0 ? 'left' : 'right';
+      ctx.textBaseline = 'middle';
+      const gap = (hi[i] - li[i]).toFixed(1);
+      ctx.fillText(`${gap} years`, px + off + (i === 0 ? 6 : -6), (top + bot) / 2);
+    });
+    ctx.restore();
+  }
+};
+
+document.fonts.ready.then(() => new Chart(document.getElementById('chart'), {
+  type: 'line',
+  data: {
+    labels: years,
+    datasets: series.map((s, k) => ({
+      label: s.label,
+      data: s.data,
+      borderColor: s.color,
+      backgroundColor: s.color,
+      // shade the gap between the two lines
+      fill: k === 1 ? { target: 0, above: 'rgba(159,225,203,0.35)', below: 'rgba(159,225,203,0.35)' } : false,
+      borderWidth: 2.5,
+      pointRadius: 0,
+      pointHoverRadius: 5,
+      pointHitRadius: 8,
+      tension: 0.25
+    }))
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 700 },
+    interaction: { mode: 'index', intersect: false },
+    layout: { padding: { top: 6, right: 8 } },
+    scales: {
+      x: {
+        ticks: {
+          font: { family: FONT, size: 11 }, color: '#333',
+          autoSkip: false,
+          callback: (v, i) => (years[i] % 4 === 0 || years[i] === 2024) ? years[i] : ''
+        },
+        grid: { display: false },
+        border: { color: '#ccc' },
+        title: { display: true, text: 'Year', font: { family: FONT, size: 12 }, color: '#444' }
+      },
+      y: {
+        min: 50, max: 85,
+        ticks: { stepSize: 5, font: { family: FONT, size: 11 }, color: '#333' },
+        grid: { color: '#eee' },
+        border: { display: false },
+        title: { display: true, text: 'Life expectancy at birth (years)', font: { family: FONT, size: 12 }, color: '#444' }
+      }
+    },
+    plugins: {
+      legend: {
+        position: 'top',
+        labels: { font: { family: FONT, size: 12 }, color: '#333', usePointStyle: true, pointStyle: 'line', boxWidth: 28, padding: 16 }
+      },
+      tooltip: {
+        backgroundColor: '#fff',
+        borderColor: '#ccc',
+        borderWidth: 1,
+        titleColor: '#111',
+        bodyColor: '#333',
+        footerColor: '#085041',
+        titleFont: { family: FONT, weight: '600', size: 12 },
+        bodyFont: { family: FONT, size: 12 },
+        footerFont: { family: FONT, weight: '600', size: 12 },
+        padding: 10,
+        boxPadding: 4,
+        usePointStyle: true,
+        callbacks: {
+          label: item => ` ${item.dataset.label}: ${item.parsed.y.toFixed(1)} years`,
+          footer: items => {
+            const i = items[0].dataIndex;
+            return `Gap, high vs low income: ${(hi[i] - li[i]).toFixed(1)} years`;
+          }
+        }
+      }
+    }
+  },
+  plugins: [gapMarkers]
+}));
+</script>
+</body>
+</html>
