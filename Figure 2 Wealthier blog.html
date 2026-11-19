@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Under-five mortality rate: five highest and five lowest states, India, NFHS-5 (2019-21)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: #fff; font-family: 'IBM Plex Sans', Arial, sans-serif; color: #333; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 12px 12px 8px; }
+  .chart-box { position: relative; height: 440px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="chart-box"><canvas id="chart" aria-label="Bar chart of under-five mortality rate in the five highest and five lowest Indian states, NFHS-5, 2019-21" role="img"></canvas></div>
+</div>
+<script>
+const FONT = "'IBM Plex Sans', Arial, sans-serif";
+
+// NFHS-5 (2019-21) and NFHS-4 (2015-16) under-five mortality, deaths per 1,000 live births
+// As compiled in Economic Survey 2021-22, Table 12 (State-wise child mortality indicators)
+const raw = [
+  ['Uttar Pradesh', 59.8, 78.1], ['Bihar', 56.4, 58.1], ['Chhattisgarh', 50.4, 64.3],
+  ['Madhya Pradesh', 49.2, 64.6], ['Uttarakhand', 45.6, 46.5],
+  ['', null, null],
+  ['Tamil Nadu', 22.3, 26.8], ['Arunachal Pradesh', 18.8, 32.9], ['Sikkim', 11.2, 32.2],
+  ['Goa', 10.6, 12.9], ['Kerala', 5.2, 7.1]
+];
+const INDIA = 41.9;
+const HIGHLIGHT = ['Bihar', 'Kerala'];
+
+const labels = raw.map(r => r[0]);
+const values = raw.map(r => r[1]);
+const nfhs4 = raw.map(r => r[2]);
+const colors = labels.map((l, i) => HIGHLIGHT.includes(l) ? '#085041' : (i < 5 ? '#1D9E75' : '#9FE1CB'));
+
+const valueLabels = {
+  id: 'valueLabels',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    const meta = chart.getDatasetMeta(0);
+    ctx.save();
+    ctx.textBaseline = 'middle';
+    meta.data.forEach((bar, i) => {
+      if (values[i] == null) return;
+      const bold = HIGHLIGHT.includes(labels[i]);
+      ctx.font = `${bold ? '600' : '400'} 11px ${FONT}`;
+      const txt = values[i].toFixed(1);
+      const w = ctx.measureText(txt).width;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(bar.x + 4, bar.y - 7, w + 4, 14);
+      ctx.fillStyle = bold ? '#085041' : '#444';
+      ctx.fillText(txt, bar.x + 6, bar.y);
+    });
+    ctx.restore();
+  }
+};
+
+// Dashed reference line for the all-India average
+const indiaLine = {
+  id: 'indiaLine',
+  beforeDatasetsDraw(chart) {
+    const { ctx, chartArea, scales: { x } } = chart;
+    const px = x.getPixelForValue(INDIA);
+    ctx.save();
+    ctx.strokeStyle = '#1A5276';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(px, chartArea.top); ctx.lineTo(px, chartArea.bottom); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#1A5276';
+    ctx.font = `600 11px ${FONT}`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(`India: ${INDIA}`, px + 5, chartArea.bottom - 4);    ctx.restore();
+  }
+};
+
+document.fonts.ready.then(() => new Chart(document.getElementById('chart'), {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: [{
+      label: 'Under-five mortality rate',
+      data: values,
+      backgroundColor: colors,
+      hoverBackgroundColor: colors.map(c => c === '#085041' ? '#0B6B57' : c === '#1D9E75' ? '#178A66' : '#7FD3B6'),
+      categoryPercentage: 0.75,
+      barPercentage: 0.9
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 700 },
+    layout: { padding: { right: 12 } },
+    scales: {
+      x: {
+        min: 0, max: 70,
+        ticks: { stepSize: 10, font: { family: FONT, size: 11 }, color: '#333' },
+        grid: { color: '#eee' },
+        border: { display: false },
+        title: { display: true, text: 'Under-five deaths per 1,000 live births', font: { family: FONT, size: 12 }, color: '#444' }
+      },
+      y: {
+        ticks: {
+          font: ctx => ({ family: FONT, size: 11, weight: HIGHLIGHT.includes(labels[ctx.index]) ? '600' : '400' }),
+          color: ctx => HIGHLIGHT.includes(labels[ctx.index]) ? '#085041' : '#333',
+          autoSkip: false
+        },
+        grid: { display: false },
+        border: { display: false }
+      }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#fff',
+        borderColor: '#ccc',
+        borderWidth: 1,
+        titleColor: '#111',
+        bodyColor: '#333',
+        titleFont: { family: FONT, weight: '600', size: 12 },
+        bodyFont: { family: FONT, size: 12 },
+        padding: 10,
+        displayColors: false,
+        filter: item => values[item.dataIndex] != null,
+        callbacks: {
+          label: item => {
+            const i = item.dataIndex;
+            const diff = values[i] - INDIA;
+            return [
+              `NFHS-5 (2019-21): ${values[i].toFixed(1)} per 1,000`,
+              `NFHS-4 (2015-16): ${nfhs4[i].toFixed(1)} per 1,000`,
+              `${diff >= 0 ? '+' : ''}${diff.toFixed(1)} vs India average`
+            ];
+          }
+        }
+      }
+    }
+  },
+  plugins: [valueLabels, indiaLine]
+}));
+</script>
+</body>
+</html>
